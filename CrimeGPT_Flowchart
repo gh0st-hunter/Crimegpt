@@ -1,0 +1,668 @@
+// ============================================================================
+// CrimeGPT — Complete System Workflow Flowcharts
+// AI-Powered Crime Documentation & Legal Intelligence Platform
+// Format: Graphviz DOT
+// ============================================================================
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOWCHART 1: HIGH-LEVEL SYSTEM ARCHITECTURE
+// ═══════════════════════════════════════════════════════════════════
+
+digraph SystemArchitecture {
+	label="FLOWCHART 1: High-Level System Architecture"
+	labelloc=t
+	fontname="Helvetica"
+	fontsize=20
+	rankdir=TB
+	node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=11]
+	edge [fontname="Helvetica" fontsize=9]
+
+	// Frontend
+	subgraph cluster_frontend {
+		label="Frontend (React + Vite — Port 5173)"
+		style="rounded,dashed"
+		color="#4f6ef7"
+		fontcolor="#4f6ef7"
+		UI [label="React SPA\n11 Pages\nAuthContext + Axios" fillcolor="#e8f0fe"]
+	}
+
+	// Backend
+	subgraph cluster_backend {
+		label="Backend (FastAPI — Port 8000)"
+		style="rounded,dashed"
+		color="#8b5cf6"
+		fontcolor="#8b5cf6"
+
+		AUTH_R [label="auth.py\nJWT Auth" fillcolor="#f3e8ff"]
+		CASES_R [label="cases.py\nCase CRUD + AI" fillcolor="#f3e8ff"]
+		DOCS_R [label="documents.py\nLegal Docs" fillcolor="#f3e8ff"]
+		EVIDENCE_R [label="evidence.py\nFile Upload" fillcolor="#f3e8ff"]
+		CHAT_R [label="chat.py\nAI Chatbot" fillcolor="#f3e8ff"]
+		DATASET_R [label="dataset.py\nLegal Sections" fillcolor="#f3e8ff"]
+		KANOON_R [label="kanoon.py\nCase Law" fillcolor="#f3e8ff"]
+		NOTIF_R [label="notifications.py\nAlerts & Reminders" fillcolor="#f3e8ff"]
+	}
+
+	// Services
+	subgraph cluster_services {
+		label="Services Layer"
+		style="rounded,dashed"
+		color="#06d6a0"
+		fontcolor="#06d6a0"
+
+		AI_SVC [label="ai_service.py\nCore AI Engine\n(8 functions)" fillcolor="#e6f9f0"]
+		DOC_SVC [label="document_service.py\nHTML Templates\n(4 doc types)" fillcolor="#e6f9f0"]
+		AUTH_SVC [label="auth.py\nJWT + bcrypt" fillcolor="#e6f9f0"]
+		KANOON_SVC [label="kanoon_service.py\nAPI Client" fillcolor="#e6f9f0"]
+	}
+
+	// Database
+	DB [label="SQLite Database\n7 Tables:\nusers, cases, evidence,\ntimeline_events, notifications,\nreminders, chat_messages" shape=cylinder fillcolor="#fff7e6"]
+
+	// External
+	OPENAI [label="OpenAI GPT-4o\n(or Mock Mode)" shape=ellipse fillcolor="#ffeee6"]
+	KANOON_API [label="Indian Kanoon API\n(Case Law Search)" shape=ellipse fillcolor="#ffeee6"]
+
+	// Connections
+	UI -> AUTH_R [label="HTTP + JWT"]
+	UI -> CASES_R [label="HTTP + JWT"]
+	UI -> DOCS_R [label="HTTP + JWT"]
+	UI -> EVIDENCE_R [label="HTTP + JWT"]
+	UI -> CHAT_R [label="HTTP + JWT"]
+	UI -> DATASET_R [label="HTTP + JWT"]
+	UI -> KANOON_R [label="HTTP + JWT"]
+	UI -> NOTIF_R [label="HTTP + JWT"]
+
+	AUTH_R -> AUTH_SVC
+	CASES_R -> AI_SVC
+	DOCS_R -> DOC_SVC
+	EVIDENCE_R -> AI_SVC
+	CHAT_R -> AI_SVC
+	KANOON_R -> KANOON_SVC
+
+	AUTH_SVC -> DB
+	AI_SVC -> DB
+	DOC_SVC -> DB
+	CASES_R -> DB
+	EVIDENCE_R -> DB
+	NOTIF_R -> DB
+
+	AI_SVC -> OPENAI [style=dashed label="Optional"]
+	KANOON_SVC -> KANOON_API [style=dashed label="Optional"]
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOWCHART 2: AUTHENTICATION & AUTHORIZATION FLOW
+// ═══════════════════════════════════════════════════════════════════
+
+digraph AuthFlow {
+	label="FLOWCHART 2: Authentication & Authorization Flow"
+	labelloc=t
+	fontname="Helvetica"
+	fontsize=20
+	rankdir=TB
+	node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=11 fillcolor="#e8f0fe"]
+	edge [fontname="Helvetica" fontsize=9]
+
+	START [label="User Opens App" shape=ellipse fillcolor="#d4edda"]
+
+	CHECK [label="Token in\nlocalStorage?" shape=diamond fillcolor="#fff3cd"]
+
+	VERIFY [label="GET /api/auth/me\nVerify JWT Token"]
+	VALID [label="Token Valid\nLoad User Data"]
+	INVALID [label="Token Invalid\nor Expired"]
+	CLEAR [label="Clear localStorage\n(token + user)"]
+
+	LOGIN_PAGE [label="Show Login /\nRegister Page"]
+
+	REG_OR_LOGIN [label="Register\nor Login?" shape=diamond fillcolor="#fff3cd"]
+
+	// Register path
+	REGISTER [label="POST /api/auth/register\nemail, password, full_name,\nrole, badge_number, station, rank"]
+	HASH [label="Hash Password\n(bcrypt)"]
+	CREATE_USER [label="Create User in DB\n(auto-verified for demo)"]
+
+	// Login path
+	LOGIN [label="POST /api/auth/login\nemail, password"]
+	VALIDATE [label="Validate Credentials\n(bcrypt verify)"]
+	CHECK_ACTIVE [label="Account\nActive?" shape=diamond fillcolor="#fff3cd"]
+
+	// Outcomes
+	GEN_TOKEN [label="Generate JWT Token\n(HS256, 30-day expiry)\npayload: user_id + role"]
+	STORE [label="Store in localStorage\n• crimegpt_token\n• crimegpt_user"]
+	DASHBOARD [label="Load Dashboard" shape=ellipse fillcolor="#d4edda"]
+	ERROR_401 [label="401\nInvalid Credentials" shape=ellipse fillcolor="#f8d7da"]
+	ERROR_403 [label="403\nAccount Deactivated" shape=ellipse fillcolor="#f8d7da"]
+
+	// RBAC
+	RBAC [label="Role-Based Access Control" shape=note fillcolor="#e8e0f0"]
+	VICTIM [label="VICTIM\nOwn cases only"]
+	OFFICER [label="OFFICER\nAssigned + unassigned cases"]
+	ADMIN [label="ADMIN\nFull access to all"]
+
+	// Edges
+	START -> CHECK
+	CHECK -> VERIFY [label="Yes"]
+	CHECK -> LOGIN_PAGE [label="No"]
+
+	VERIFY -> VALID [label="200 OK"]
+	VERIFY -> INVALID [label="401 Error"]
+	VALID -> DASHBOARD
+	INVALID -> CLEAR
+	CLEAR -> LOGIN_PAGE
+
+	LOGIN_PAGE -> REG_OR_LOGIN
+
+	REG_OR_LOGIN -> REGISTER [label="Register"]
+	REG_OR_LOGIN -> LOGIN [label="Login"]
+
+	REGISTER -> HASH
+	HASH -> CREATE_USER
+	CREATE_USER -> GEN_TOKEN
+
+	LOGIN -> VALIDATE
+	VALIDATE -> CHECK_ACTIVE [label="Credentials OK"]
+	VALIDATE -> ERROR_401 [label="Wrong email/password"]
+	CHECK_ACTIVE -> GEN_TOKEN [label="Yes"]
+	CHECK_ACTIVE -> ERROR_403 [label="No"]
+
+	GEN_TOKEN -> STORE
+	STORE -> DASHBOARD
+
+	DASHBOARD -> RBAC
+	RBAC -> VICTIM
+	RBAC -> OFFICER
+	RBAC -> ADMIN
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOWCHART 3: AI-POWERED FIR GENERATION WORKFLOW
+// ═══════════════════════════════════════════════════════════════════
+
+digraph FIRGeneration {
+	label="FLOWCHART 3: AI-Powered FIR Generation Workflow"
+	labelloc=t
+	fontname="Helvetica"
+	fontsize=20
+	rankdir=TB
+	node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=11 fillcolor="#e8f0fe"]
+	edge [fontname="Helvetica" fontsize=9]
+
+	// Input
+	USER_INPUT [label="Victim / Officer\nWrites Complaint in\nNatural Language" shape=ellipse fillcolor="#d4edda"]
+
+	// Two paths
+	PATH_A [label="Path A: Manual Case\nNewCasePage Form\nPOST /api/cases/"]
+	PATH_B [label="Path B: AI Direct\nComplaint Text Only\nPOST /api/cases/from-complaint"]
+
+	// AI Processing
+	CLASSIFY_PRIORITY [label="classify_priority()\nAnalyze severity\n→ Critical / High / Medium / Low"]
+	GENERATE_FIR [label="generate_fir()\nConvert complaint to\nformal FIR text"]
+	LEGAL_SECTIONS [label="get_legal_suggestions()\nRecommend applicable\nBNS / BNSS / BSA / IT Act sections"]
+	INVESTIGATION [label="Generate\nInvestigation Steps &\nRequired Evidence List"]
+
+	// AI Mode
+	AI_MODE [label="OpenAI API Key\nConfigured?" shape=diamond fillcolor="#fff3cd"]
+	LIVE_AI [label="OpenAI GPT-4o\nLive AI Processing"]
+	MOCK_AI [label="Mock Mode\nRule-based Templates\n& Keyword Matching"]
+
+	// Storage
+	CREATE_CASE [label="Create Case Record\nin Database"]
+	ASSIGN_FIR [label="Generate FIR Number\nFIR/2026/XXXXXX"]
+	SET_STATUS [label="Set Status:\nDRAFT (Path A)\nFILED (Path B)"]
+	STORE_AI [label="Store AI Outputs:\n• ai_fir_text\n• ai_legal_sections\n• ai_investigation_steps\n• ai_required_evidence\n• ai_priority_reasoning"]
+	TIMELINE [label="Create Timeline Events:\n1. Complaint Filed\n2. FIR Generated\n3. Legal Sections Identified"]
+	NOTIFY [label="Send Notification\nto Complainant:\nFIR #{number} Generated"]
+
+	// Output
+	CASE_DETAIL [label="CaseDetailPage\nOverview Tab\nDisplays FIR + Sections +\nSteps + Priority" shape=ellipse fillcolor="#d4edda"]
+
+	// Path A
+	USER_INPUT -> PATH_A
+	USER_INPUT -> PATH_B
+
+	PATH_A -> CLASSIFY_PRIORITY
+	CLASSIFY_PRIORITY -> CREATE_CASE
+	CREATE_CASE -> SET_STATUS
+	SET_STATUS -> OFFICER_GEN [label="Later: Officer clicks\nGenerate FIR"]
+
+	OFFICER_GEN [label="POST /api/cases/\ngenerate-fir/{case_id}"]
+	OFFICER_GEN -> AI_MODE
+
+	// Path B
+	PATH_B -> AI_MODE
+
+	AI_MODE -> LIVE_AI [label="Key Set"]
+	AI_MODE -> MOCK_AI [label="No Key"]
+	LIVE_AI -> GENERATE_FIR
+	MOCK_AI -> GENERATE_FIR
+
+	GENERATE_FIR -> LEGAL_SECTIONS
+	LEGAL_SECTIONS -> INVESTIGATION
+	INVESTIGATION -> STORE_AI
+	STORE_AI -> ASSIGN_FIR
+	ASSIGN_FIR -> TIMELINE
+	TIMELINE -> NOTIFY
+	NOTIFY -> CASE_DETAIL
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOWCHART 4: CASE LIFECYCLE & STATUS TRANSITIONS
+// ═══════════════════════════════════════════════════════════════════
+
+digraph CaseLifecycle {
+	label="FLOWCHART 4: Case Lifecycle & Status Transitions"
+	labelloc=t
+	fontname="Helvetica"
+	fontsize=20
+	rankdir=TB
+	node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=11]
+	edge [fontname="Helvetica" fontsize=9]
+
+	// States
+	DRAFT [label="DRAFT\n─────────────────\nInitial complaint\nNo FIR number\nAI priority set" fillcolor="#e8f0fe"]
+	FILED [label="FILED\n─────────────────\nFIR# assigned\nAI FIR text generated\nLegal sections identified" fillcolor="#d4edda"]
+	UNDER_INV [label="UNDER INVESTIGATION\n─────────────────\nOfficer assigned\nCase diary active\nReminders set" fillcolor="#fff3cd"]
+	EVIDENCE [label="EVIDENCE COLLECTION\n─────────────────\nFile uploads\nAI evidence analysis\nText extraction" fillcolor="#ffeee6"]
+	CHARGESHEET [label="CHARGESHEET FILED\n─────────────────\nLegal documents generated\nRemand request\nSeizure receipt" fillcolor="#f3e8ff"]
+	COURT [label="COURT PROCEEDINGS\n─────────────────\nLandmark judgments\nIndian Kanoon search\nCourt dates tracked" fillcolor="#e8e0f0"]
+	CLOSED [label="CLOSED\n─────────────────\nclosed_at timestamp\nNotification sent\nCase archived" fillcolor="#f8d7da"]
+	REOPENED [label="REOPENED\n─────────────────\nNew evidence found\nor appeal filed" fillcolor="#fff3cd"]
+
+	// Trigger nodes
+	MANUAL [label="Manual\nCase Form" shape=ellipse fillcolor="#d4edda"]
+	AI_DIRECT [label="AI Direct\nfrom-complaint" shape=ellipse fillcolor="#d4edda"]
+
+	// Transitions
+	MANUAL -> DRAFT [label="Complaint filed"]
+	AI_DIRECT -> FILED [label="Auto-generated FIR"]
+	DRAFT -> FILED [label="FIR generated\n(AI processing)"]
+	FILED -> UNDER_INV [label="Officer starts\ninvestigation"]
+	FILED -> EVIDENCE [label="Direct to\nevidence phase"]
+	UNDER_INV -> EVIDENCE [label="Collecting evidence"]
+	EVIDENCE -> UNDER_INV [label="More investigation\nneeded"]
+	UNDER_INV -> CHARGESHEET [label="Chargesheet\nsubmitted"]
+	EVIDENCE -> CHARGESHEET [label="Evidence\ncomplete"]
+	CHARGESHEET -> COURT [label="Court hearings\nbegin"]
+	COURT -> CLOSED [label="Judgment\ndelivered"]
+	FILED -> CLOSED [label="Case dismissed"]
+	UNDER_INV -> CLOSED [label="Investigation\ncomplete"]
+	CLOSED -> REOPENED [label="New evidence\nor appeal"]
+	REOPENED -> UNDER_INV [label="Re-investigate"]
+
+	// Actions at each state
+	subgraph cluster_actions {
+		label="Actions Triggered on Status Change"
+		style="rounded,dashed"
+		color="#888888"
+		fontcolor="#888888"
+		node [shape=note fillcolor="#f9f9f9" fontsize=9]
+
+		ACT1 [label="• Timeline event created\n• Notification sent to complainant\n• PUT /api/cases/{id}"]
+	}
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOWCHART 5: LEGAL DOCUMENT GENERATION WORKFLOW
+// ═══════════════════════════════════════════════════════════════════
+
+digraph DocumentGeneration {
+	label="FLOWCHART 5: Legal Document Generation (4-Step Wizard)"
+	labelloc=t
+	fontname="Helvetica"
+	fontsize=20
+	rankdir=TB
+	node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=11 fillcolor="#e8f0fe"]
+	edge [fontname="Helvetica" fontsize=9]
+
+	// Step 1
+	START [label="Officer Opens\nDocuments Page" shape=ellipse fillcolor="#d4edda"]
+
+	subgraph cluster_step1 {
+		label="Step 1: Select Document Type"
+		style="rounded,dashed"
+		color="#8b5cf6"
+		fontcolor="#8b5cf6"
+
+		DOC1 [label="Remand Request Letter\nSection 187 BNSS\nPolice custody extension" fillcolor="#f3e8ff"]
+		DOC2 [label="Seizure Receipt (Panchnama)\nSection 105 BNSS\nEvidence seizure record" fillcolor="#f3e8ff"]
+		DOC3 [label="Medical Treatment Letter\nSection 51/184 BNSS\nMedical examination request" fillcolor="#f3e8ff"]
+		DOC4 [label="Court Custody Letter\nSection 187 BNSS\nJudicial custody transfer" fillcolor="#f3e8ff"]
+	}
+
+	// Step 2
+	SELECT_CASE [label="Step 2: Select Case\nGET /api/cases/\nChoose from filed cases"]
+
+	// Step 3
+	FILL_FORM [label="Step 3: Fill Details\n• Officer name, rank, badge\n• Police station\n• Court & magistrate name\n• Accused details\n• Arrest date\n• Items seized / hospital / doctor"]
+
+	// Step 4
+	GENERATE [label="Step 4: Generate\nPOST /api/documents/\n{case_id}/generate"]
+	DOC_SERVICE [label="document_service.py\ngenerate_legal_document()\nMerge case data into\nHTML template"]
+	PREVIEW [label="HTML Document\nRendered in iframe"]
+
+	// Output actions
+	DOWNLOAD [label="Download\nas HTML"]
+	PRINT [label="Print\nas PDF"]
+
+	// Edges
+	START -> DOC1
+	START -> DOC2
+	START -> DOC3
+	START -> DOC4
+
+	DOC1 -> SELECT_CASE
+	DOC2 -> SELECT_CASE
+	DOC3 -> SELECT_CASE
+	DOC4 -> SELECT_CASE
+
+	SELECT_CASE -> FILL_FORM
+	FILL_FORM -> GENERATE
+	GENERATE -> DOC_SERVICE
+	DOC_SERVICE -> PREVIEW
+	PREVIEW -> DOWNLOAD
+	PREVIEW -> PRINT
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOWCHART 6: AI ENGINE & SERVICE LAYER
+// ═══════════════════════════════════════════════════════════════════
+
+digraph AIEngine {
+	label="FLOWCHART 6: AI Engine & Service Layer (ai_service.py)"
+	labelloc=t
+	fontname="Helvetica"
+	fontsize=20
+	rankdir=TB
+	node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=11 fillcolor="#e8f0fe"]
+	edge [fontname="Helvetica" fontsize=9]
+
+	// Triggers
+	subgraph cluster_triggers {
+		label="Trigger Points"
+		style="rounded,dashed"
+		color="#f59e0b"
+		fontcolor="#f59e0b"
+
+		T1 [label="Create Case" fillcolor="#fff7e6"]
+		T2 [label="Generate FIR" fillcolor="#fff7e6"]
+		T3 [label="Classify Crime\n(NLP endpoint)" fillcolor="#fff7e6"]
+		T4 [label="Legal Suggestions\n(Case Detail)" fillcolor="#fff7e6"]
+		T5 [label="Landmark Judgments\n(Legal Intel tab)" fillcolor="#fff7e6"]
+		T6 [label="Evidence Upload\n(file submitted)" fillcolor="#fff7e6"]
+		T7 [label="Chat Message\n(user sends)" fillcolor="#fff7e6"]
+		T8 [label="Victim Guidance\n(multilingual)" fillcolor="#fff7e6"]
+	}
+
+	// AI Functions
+	subgraph cluster_functions {
+		label="AI Functions"
+		style="rounded,dashed"
+		color="#06d6a0"
+		fontcolor="#06d6a0"
+
+		F1 [label="classify_priority()" fillcolor="#e6f9f0"]
+		F2 [label="generate_fir()" fillcolor="#e6f9f0"]
+		F3 [label="classify_crime_nlp()" fillcolor="#e6f9f0"]
+		F4 [label="get_legal_suggestions()" fillcolor="#e6f9f0"]
+		F5 [label="get_landmark_judgments()" fillcolor="#e6f9f0"]
+		F6 [label="analyze_evidence()" fillcolor="#e6f9f0"]
+		F7 [label="chat_response()" fillcolor="#e6f9f0"]
+		F8 [label="get_multilingual_guidance()" fillcolor="#e6f9f0"]
+	}
+
+	// Mode Decision
+	MODE [label="OPENAI_API_KEY\nConfigured?" shape=diamond fillcolor="#fff3cd"]
+	OPENAI_MODE [label="OpenAI Mode\nGPT-4o\nLive AI Processing"]
+	MOCK_MODE [label="Mock Mode\nRule-based NLP\nTemplate Responses\nKeyword Matching"]
+
+	// Outputs
+	subgraph cluster_outputs {
+		label="AI Outputs"
+		style="rounded,dashed"
+		color="#4f6ef7"
+		fontcolor="#4f6ef7"
+
+		O1 [label="FIR Text\n(formal format)"]
+		O2 [label="Legal Sections\n(BNS/BNSS/BSA/IT Act)"]
+		O3 [label="Priority + Reasoning\n(Critical/High/Med/Low)"]
+		O4 [label="Investigation Steps\n& Required Evidence"]
+		O5 [label="Crime Category Scores\n(confidence %)"]
+		O6 [label="Landmark Judgments\n(SC/HC cases)"]
+		O7 [label="Evidence Analysis\n(extracted text + insights)"]
+		O8 [label="Chat Responses\n(6 languages)"]
+	}
+
+	// Trigger -> Function
+	T1 -> F1
+	T2 -> F2
+	T3 -> F3
+	T4 -> F4
+	T5 -> F5
+	T6 -> F6
+	T7 -> F7
+	T8 -> F8
+
+	// Function -> Mode
+	F1 -> MODE
+	F2 -> MODE
+	F3 -> MODE
+	F4 -> MODE
+	F5 -> MODE
+	F6 -> MODE
+	F7 -> MODE
+	F8 -> MODE
+
+	// Mode -> Output
+	MODE -> OPENAI_MODE [label="Key Set"]
+	MODE -> MOCK_MODE [label="No Key"]
+
+	OPENAI_MODE -> O1
+	OPENAI_MODE -> O2
+	OPENAI_MODE -> O3
+	OPENAI_MODE -> O4
+	OPENAI_MODE -> O5
+	OPENAI_MODE -> O6
+	OPENAI_MODE -> O7
+	OPENAI_MODE -> O8
+
+	MOCK_MODE -> O1
+	MOCK_MODE -> O2
+	MOCK_MODE -> O3
+	MOCK_MODE -> O4
+	MOCK_MODE -> O5
+	MOCK_MODE -> O6
+	MOCK_MODE -> O7
+	MOCK_MODE -> O8
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOWCHART 7: DATABASE ENTITY RELATIONSHIPS
+// ═══════════════════════════════════════════════════════════════════
+
+digraph DatabaseER {
+	label="FLOWCHART 7: Database Entity Relationships (7 Tables)"
+	labelloc=t
+	fontname="Helvetica"
+	fontsize=20
+	rankdir=TB
+	node [shape=record style="filled" fontname="Helvetica" fontsize=10 fillcolor="#e8f0fe"]
+	edge [fontname="Helvetica" fontsize=8]
+
+	USER [label="{USER|id (UUID PK)\lemail (unique)\lhashed_password\lfull_name\lphone\lrole: victim/officer/admin\lbadge_number\lstation\lrank\lis_active\lis_verified\l}"]
+
+	CASE [label="{CASE|id (UUID PK)\lfir_number (unique)\ltitle\ldescription\lcategory (12 types)\lstatus (8 states)\lpriority (4 levels)\lai_fir_text\lai_legal_sections (JSON)\lai_investigation_steps (JSON)\lai_required_evidence (JSON)\lai_priority_reasoning\lincident_location\lincident_date\lpolice_station\lcomplainant_id (FK → User)\lassigned_officer_id (FK → User)\lfiled_at\lclosed_at\l}"]
+
+	EVIDENCE [label="{EVIDENCE|id (UUID PK)\lcase_id (FK → Case)\ltitle\ldescription\levidence_type (8 types)\lfile_path\lfile_name\lfile_size\lmime_type\lai_analysis\lextracted_text\luploaded_by (FK → User)\lis_verified\l}"]
+
+	TIMELINE [label="{TIMELINE_EVENT|id (UUID PK)\lcase_id (FK → Case)\ltitle\ldescription\levent_date\levent_type\lcreated_by (FK → User)\lis_ai_generated\l}"]
+
+	NOTIFICATION [label="{NOTIFICATION|id (UUID PK)\luser_id (FK → User)\ltitle\lmessage\lnotification_type\lchannel: in_app/email/sms/whatsapp\lis_read\lcase_id (FK → Case)\l}"]
+
+	REMINDER [label="{REMINDER|id (UUID PK)\lcase_id (FK → Case)\luser_id (FK → User)\ltitle\ldescription\ldue_date\lis_completed\lreminder_type\l}"]
+
+	CHAT [label="{CHAT_MESSAGE|id (UUID PK)\luser_id (FK → User)\lmessage\lresponse\lcontext: victim_guidance /\l  investigation / cybercrime / general\l}"]
+
+	// Relationships
+	USER -> CASE [label="files (complainant_id)"]
+	USER -> CASE [label="investigates (assigned_officer_id)" style=dashed]
+	USER -> NOTIFICATION [label="receives"]
+	USER -> CHAT [label="sends"]
+	USER -> REMINDER [label="has"]
+	CASE -> EVIDENCE [label="contains"]
+	CASE -> TIMELINE [label="logs"]
+	CASE -> REMINDER [label="tracks"]
+	CASE -> NOTIFICATION [label="triggers"]
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOWCHART 8: FRONTEND PAGE NAVIGATION & USER JOURNEY
+// ═══════════════════════════════════════════════════════════════════
+
+digraph FrontendNavigation {
+	label="FLOWCHART 8: Frontend Page Navigation & User Journey"
+	labelloc=t
+	fontname="Helvetica"
+	fontsize=20
+	rankdir=TB
+	node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=11 fillcolor="#e8f0fe"]
+	edge [fontname="Helvetica" fontsize=9]
+
+	ENTRY [label="User Visits App" shape=ellipse fillcolor="#d4edda"]
+	AUTH_CHECK [label="Authenticated?\n(ProtectedRoute)" shape=diamond fillcolor="#fff3cd"]
+
+	// Public
+	subgraph cluster_public {
+		label="Public Routes"
+		style="rounded,dashed"
+		color="#ef4444"
+		fontcolor="#ef4444"
+
+		LOGIN [label="/login\nLoginPage\nEmail + Password" fillcolor="#ffeee6"]
+		REGISTER [label="/register\nRegisterPage\nName, Email, Role,\nBadge, Station" fillcolor="#ffeee6"]
+	}
+
+	// Protected
+	subgraph cluster_protected {
+		label="Protected Routes (Layout with Sidebar)"
+		style="rounded,dashed"
+		color="#06d6a0"
+		fontcolor="#06d6a0"
+
+		DASHBOARD [label="/\nDashboardPage\nStats, Quick Actions,\nSeed Demo Data" fillcolor="#e6f9f0"]
+		CASES [label="/cases\nCasesPage\nList with Filters:\nstatus, priority, category" fillcolor="#e6f9f0"]
+		NEW_CASE [label="/cases/new\nNewCasePage\nComplaint Form +\nAI from-complaint" fillcolor="#e6f9f0"]
+		CASE_DETAIL [label="/cases/:id\nCaseDetailPage\n5-Tab Interface" fillcolor="#e6f9f0"]
+		DOCUMENTS [label="/documents\nDocumentsPage\n4-Step Doc Wizard" fillcolor="#e6f9f0"]
+		LEGAL [label="/legal-sections\nLegalSectionsPage\nBNS/BNSS/BSA Browser" fillcolor="#e6f9f0"]
+		CHAT [label="/chat\nChatPage\nAI Assistant\n(6 languages)" fillcolor="#e6f9f0"]
+		ANALYTICS [label="/analytics\nAnalyticsPage\nCharts & Metrics" fillcolor="#e6f9f0"]
+		NOTIFS [label="/notifications\nNotificationsPage\nAlert Center" fillcolor="#e6f9f0"]
+	}
+
+	// Case Detail Tabs
+	subgraph cluster_tabs {
+		label="CaseDetailPage — 5 Tabs"
+		style="rounded,dashed"
+		color="#8b5cf6"
+		fontcolor="#8b5cf6"
+
+		TAB1 [label="Tab 1: Overview\nFIR text, legal sections,\ninvestigation steps,\npriority badge" fillcolor="#f3e8ff"]
+		TAB2 [label="Tab 2: Case Diary\nTimeline events,\nadd new entries,\nAI-tagged events" fillcolor="#f3e8ff"]
+		TAB3 [label="Tab 3: Evidence\nFile uploads (8 types),\nAI text extraction,\nAI analysis" fillcolor="#f3e8ff"]
+		TAB4 [label="Tab 4: Legal Intel\nSection suggestions,\nlandmark judgments,\nIndian Kanoon search" fillcolor="#f3e8ff"]
+		TAB5 [label="Tab 5: Documents\nQuick generate\nfrom case context" fillcolor="#f3e8ff"]
+	}
+
+	// Edges
+	ENTRY -> AUTH_CHECK
+	AUTH_CHECK -> LOGIN [label="Not Authenticated"]
+	AUTH_CHECK -> DASHBOARD [label="Authenticated"]
+
+	LOGIN -> DASHBOARD [label="Success"]
+	REGISTER -> DASHBOARD [label="Success"]
+	LOGIN -> REGISTER [label="No account?"]
+	REGISTER -> LOGIN [label="Have account?"]
+
+	DASHBOARD -> CASES
+	DASHBOARD -> NEW_CASE
+	DASHBOARD -> CHAT
+	DASHBOARD -> ANALYTICS
+	DASHBOARD -> NOTIFS
+	DASHBOARD -> LEGAL
+
+	CASES -> CASE_DETAIL [label="Click case"]
+	CASES -> NEW_CASE [label="New case"]
+	NEW_CASE -> CASE_DETAIL [label="Case created"]
+
+	CASE_DETAIL -> TAB1
+	CASE_DETAIL -> TAB2
+	CASE_DETAIL -> TAB3
+	CASE_DETAIL -> TAB4
+	CASE_DETAIL -> TAB5
+
+	CASE_DETAIL -> DOCUMENTS [label="Generate docs"]
+	TAB4 -> LEGAL [label="Browse all sections"]
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOWCHART 9: COMPLETE END-TO-END WORKFLOW (SUMMARY)
+// ═══════════════════════════════════════════════════════════════════
+
+digraph EndToEndWorkflow {
+	label="FLOWCHART 9: Complete End-to-End CrimeGPT Workflow"
+	labelloc=t
+	fontname="Helvetica"
+	fontsize=20
+	rankdir=TB
+	node [shape=box style="rounded,filled" fontname="Helvetica" fontsize=11]
+	edge [fontname="Helvetica" fontsize=9]
+
+	A [label="Citizen / Officer\nOpens CrimeGPT" fillcolor="#d4edda"]
+	B [label="Register / Login\n(JWT Authentication)" fillcolor="#e8f0fe"]
+	C [label="Dashboard\nView Stats & Quick Actions" fillcolor="#e8f0fe"]
+	D [label="Submit Complaint\nNatural Language Input" fillcolor="#fff7e6"]
+	E [label="NLP Processing &\nCrime Classification\n(12 categories)" fillcolor="#ffeee6"]
+	F [label="AI Priority Assessment\nCritical / High / Medium / Low" fillcolor="#ffeee6"]
+	G [label="AI Legal Engine\nBNS / BNSS / BSA / IT Act\nSection Recommendations" fillcolor="#f3e8ff"]
+	H [label="AI FIR Generation\nFormal FIR text +\nFIR Number Assigned" fillcolor="#f3e8ff"]
+	I [label="Investigation Phase\nCase Diary (Timeline)\nEvidence Collection\n(AI-analyzed uploads)" fillcolor="#fff3cd"]
+	J [label="Legal Document Generator\n• Remand Request\n• Seizure Receipt\n• Medical Letter\n• Court Custody Letter" fillcolor="#e8e0f0"]
+	K [label="Landmark Judgment Reference\nSupreme Court / High Court\nIndian Kanoon Search" fillcolor="#e8e0f0"]
+	L [label="AI Chatbot Assistant\nMultilingual Support\n(EN, HI, TA, TE, BN, MR)" fillcolor="#e6f9f0"]
+	M [label="Analytics Dashboard\nCase Statistics\nTrend Charts\nPriority Distribution" fillcolor="#e6f9f0"]
+	N [label="Notifications & Reminders\nFIR Status Updates\nCourt Dates\nDeadlines" fillcolor="#e6f9f0"]
+	O [label="Case Closed\nor Reopened" fillcolor="#f8d7da"]
+	P [label="Faster Investigation\nBetter Justice Delivery" shape=ellipse fillcolor="#d4edda"]
+
+	A -> B
+	B -> C
+	C -> D
+	D -> E
+	E -> F
+	F -> G
+	G -> H
+	H -> I
+	I -> J
+	I -> K
+	I -> L
+	H -> N
+	I -> M
+	J -> O
+	K -> O
+	O -> P
+
+	// Side flows
+	C -> L [style=dashed label="Anytime"]
+	C -> M [style=dashed label="Anytime"]
+	C -> N [style=dashed label="Anytime"]
+}

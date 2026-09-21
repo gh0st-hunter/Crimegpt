@@ -1,0 +1,60 @@
+# ----------------------------------------------------------------------------
+# CrimeGPT — Draw.io CSV Import Configuration
+# ----------------------------------------------------------------------------
+# INSTRUCTIONS:
+# 1. Open https://app.diagrams.net (Draw.io)
+# 2. Go to: Arrange -> Insert -> Advanced -> CSV...
+# 3. Paste the entire content of this file and click "Import".
+# 4. Draw.io will automatically construct, style, and layout the flowchart!
+# ----------------------------------------------------------------------------
+
+# label: <b>%title%</b><br><i style="font-size:11px;color:#8892b0;">%desc%</i>
+# style: shape=%shape%;fillColor=%fill%;strokeColor=%stroke%;fontColor=%font%;rounded=1;html=1;whiteSpace=wrap;strokeWidth=2;fontSize=12;fontFamily=Helvetica;shadow=1;
+# namespace: csv
+# width: auto
+# height: auto
+# padding: 25
+# connect: {"from": "from", "to": "to", "label": "label", "style": "curved=1;endArrow=block;edgeStyle=orthogonalEdgeStyle;strokeColor=#4f6ef7;strokeWidth=2;fontSize=10;fontColor=#8892b0;fillColor=none;"}
+# layout: verticalflow
+# ignore: id,shape,fill,stroke,font,from,to,label
+# ----
+# id,title,desc,shape,fill,stroke,font,from,to,label
+
+# --- CLIENT NODES ---
+1,User Client,Opens Frontend (React + Vite),actor,#e8f0fe,#4f6ef7,#0f172a,,,
+2,Auth Check,Token exists in localStorage?,rhombus,#fff3cd,#ffc107,#0f172a,,,
+3,Login / Register,User authentication (bcrypt/JWT),rectangle,#ffeee6,#ff7e47,#0f172a,,,
+4,Dashboard,Quick actions & main stats,rectangle,#e6f9f0,#06d6a0,#0f172a,,,
+
+# --- COMPLAINT INTAKE ---
+5,Submit Complaint,Natural language text input,rectangle,#fff7e6,#f59e0b,#0f172a,,,
+6,AI NLP Classification,Categorize into 12 crime classes,rectangle,#ffeee6,#ff7e47,#0f172a,,,
+7,AI Priority Assessment,Severity: Critical / High / Med / Low,rectangle,#ffeee6,#ff7e47,#0f172a,,,
+
+# --- LEGAL INTELLIGENCE ---
+8,AI Legal Suggestions,BNS / BNSS / BSA suggestions,rectangle,#f3e8ff,#8b5cf6,#0f172a,,,
+9,AI FIR Generation,Convert input to formal FIR text,rectangle,#f3e8ff,#8b5cf6,#0f172a,,,
+
+# --- CASE MANAGEMENT & WORKFLOW ---
+10,Under Investigation,Assign officer & log events,rectangle,#fff3cd,#ffc107,#0f172a,,,
+11,Evidence Collection,AI analysis of uploaded evidence,rectangle,#ffeee6,#ff7e47,#0f172a,,,
+12,Legal Doc Generator,Remand / Seizure / Medical Letters,rectangle,#e8e0f0,#8b5cf6,#0f172a,,,
+13,Court Proceedings,Case law references via Indian Kanoon,rectangle,#e8e0f0,#8b5cf6,#0f172a,,,
+14,Case Closed,Archive and resolve case,ellipse,#f8d7da,#ef4444,#0f172a,,,
+
+# --- EDGES / CONNECTIONS ---
+,,,,,,1,2,
+,,,,,,2,3,No Token
+,,,,,,3,4,Success
+,,,,,,2,4,Valid Token
+,,,,,,4,5,Create Case
+,,,,,,5,6,NLP Process
+,,,,,,6,7,Analyze Priority
+,,,,,,7,8,Identify sections
+,,,,,,8,9,Generate FIR
+,,,,,,9,10,File Case
+,,,,,,10,11,Upload Evidence
+,,,,,,11,10,Evidence Linked
+,,,,,,10,12,Prepare Docs
+,,,,,,12,13,Start Hearings
+,,,,,,13,14,Final Verdict

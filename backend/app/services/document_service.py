@@ -1,0 +1,761 @@
+"""Document generation service for CrimeGPT legal documents."""
+from datetime import datetime
+from typing import Optional
+
+
+def generate_legal_document(case, doc_type: str, officer_data: dict) -> str:
+    """Generate an HTML legal document for a given case and document type."""
+    generators = {
+        "remand_request": _generate_remand_request,
+        "seizure_receipt": _generate_seizure_receipt,
+        "medical_letter": _generate_medical_letter,
+        "court_custody": _generate_court_custody,
+    }
+    gen_func = generators.get(doc_type)
+    if not gen_func:
+        return "<p>Unknown document type</p>"
+    return gen_func(case, officer_data)
+
+
+def _base_html(title: str, content: str) -> str:
+    """Wrap content in a print-ready HTML shell with official styling."""
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{title} - CrimeGPT</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&family=Arial&display=swap');
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 13pt;
+    color: #000;
+    background: #fff;
+    padding: 0;
+    line-height: 1.6;
+  }}
+  .document-wrapper {{
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 20mm 20mm 15mm 25mm;
+    background: #fff;
+    min-height: 297mm;
+    position: relative;
+  }}
+  .letterhead {{
+    text-align: center;
+    border-bottom: 3px double #000;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }}
+  .letterhead .emblem {{
+    font-size: 48px;
+    margin-bottom: 4px;
+  }}
+  .letterhead h1 {{
+    font-size: 18pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }}
+  .letterhead h2 {{
+    font-size: 13pt;
+    color: #333;
+    margin-top: 4px;
+  }}
+  .letterhead .subtitle {{
+    font-size: 10pt;
+    color: #555;
+    margin-top: 2px;
+  }}
+  .doc-title {{
+    text-align: center;
+    margin: 18px 0;
+    font-size: 15pt;
+    font-weight: bold;
+    text-decoration: underline;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }}
+  .ref-block {{
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    font-size: 12pt;
+  }}
+  .to-block {{
+    margin-bottom: 14px;
+  }}
+  .to-block .label {{
+    font-weight: bold;
+    font-size: 11pt;
+    text-transform: uppercase;
+  }}
+  .subject-line {{
+    margin: 14px 0;
+    font-size: 12pt;
+  }}
+  .subject-line strong {{
+    font-weight: bold;
+  }}
+  .salutation {{
+    margin-bottom: 12px;
+    font-size: 12pt;
+  }}
+  .body-text {{
+    text-align: justify;
+    margin-bottom: 12px;
+    font-size: 12pt;
+    line-height: 1.8;
+  }}
+  .section-header {{
+    font-weight: bold;
+    text-decoration: underline;
+    margin: 16px 0 8px;
+    font-size: 12pt;
+    text-transform: uppercase;
+  }}
+  table {{
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 12pt;
+  }}
+  table th, table td {{
+    border: 1px solid #000;
+    padding: 6px 10px;
+    text-align: left;
+  }}
+  table th {{
+    background: #f0f0f0;
+    font-weight: bold;
+  }}
+  .info-grid {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 20px;
+    margin: 12px 0;
+    font-size: 12pt;
+  }}
+  .info-row {{
+    display: flex;
+    gap: 4px;
+  }}
+  .info-label {{
+    font-weight: bold;
+    min-width: 160px;
+    flex-shrink: 0;
+  }}
+  .signature-block {{
+    margin-top: 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }}
+  .sig-left, .sig-right {{
+    text-align: center;
+    min-width: 180px;
+  }}
+  .sig-line {{
+    border-bottom: 1px solid #000;
+    width: 180px;
+    margin-bottom: 4px;
+  }}
+  .sig-name {{
+    font-weight: bold;
+    font-size: 11pt;
+  }}
+  .sig-designation {{
+    font-size: 10pt;
+    color: #333;
+  }}
+  .footer-note {{
+    margin-top: 30px;
+    font-size: 9pt;
+    color: #555;
+    border-top: 1px solid #ccc;
+    padding-top: 8px;
+    text-align: center;
+  }}
+  .highlight-box {{
+    border: 2px solid #000;
+    padding: 10px 14px;
+    margin: 14px 0;
+    background: #f9f9f9;
+  }}
+  .numbered-list {{
+    margin: 10px 0 10px 20px;
+    font-size: 12pt;
+    line-height: 1.8;
+  }}
+  .bulleted-list {{
+    margin: 10px 0 10px 20px;
+    font-size: 12pt;
+    line-height: 1.8;
+    list-style-type: disc;
+  }}
+  .seal-area {{
+    width: 100px;
+    height: 100px;
+    border: 2px dashed #999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9pt;
+    color: #999;
+    text-align: center;
+    margin: 0 auto;
+  }}
+  @media print {{
+    body {{ print-color-adjust: exact; -webkit-print-color-adjust: exact; }}
+    .document-wrapper {{ padding: 10mm 15mm; }}
+    .no-print {{ display: none !important; }}
+  }}
+</style>
+</head>
+<body>
+<div class="document-wrapper">
+{content}
+<div class="footer-note">
+  Generated by CrimeGPT — AI-Powered Legal Intelligence Platform | {datetime.now().strftime("%d %B %Y %I:%M %p")} | For official use only
+</div>
+</div>
+</body>
+</html>"""
+
+
+def _generate_remand_request(case, od: dict) -> str:
+    """Remand Request Letter — Formal petition for police custody extension."""
+    now = datetime.now()
+    legal_sections = ""
+    if case.ai_legal_sections:
+        for sec in case.ai_legal_sections[:5]:
+            s = sec.get("section", "") if isinstance(sec, dict) else str(sec)
+            d = sec.get("description", "") if isinstance(sec, dict) else ""
+            legal_sections += f"<li>{s}{' — ' + d if d else ''}</li>"
+    else:
+        legal_sections = "<li>Applicable sections as per FIR</li>"
+
+    category_display = case.category.value.replace("_", " ").title() if case.category else "Crime"
+    complainant_name = case.complainant.full_name if case.complainant else "As per FIR"
+
+    content = f"""
+<div class="letterhead">
+  <div class="emblem">🇮🇳</div>
+  <h1>Government of India</h1>
+  <h2>{od['police_station']} — Crime Branch</h2>
+  <div class="subtitle">Under the Bharatiya Nagarik Suraksha Sanhita (BNSS), 2023</div>
+</div>
+
+<div class="doc-title">Application for Remand / Extension of Police Custody</div>
+
+<div class="ref-block">
+  <span><strong>Ref. No.:</strong> {od['police_station'][:3].upper()}/REM/{now.year}/{now.month:02d}{now.day:02d}</span>
+  <span><strong>Date:</strong> {now.strftime("%d %B %Y")}</span>
+</div>
+
+<div class="to-block">
+  <div class="label">To,</div>
+  <div>{od['magistrate_name']},</div>
+  <div>{od['court_name']},</div>
+  <div>[District]</div>
+</div>
+
+<div class="subject-line">
+  <strong>Subject:</strong> Application for Remand/Extension of Police Custody of Accused in FIR No.&nbsp;
+  <strong>{case.fir_number or 'Pending'}</strong> under Section 187 BNSS (Formerly Section 167 CrPC)
+</div>
+
+<div class="salutation">Honourable Sir/Madam,</div>
+
+<div class="body-text">
+  With due respect, I, <strong>{od['officer_name']}</strong>, {od['officer_rank']}, 
+  Badge No. <strong>{od['officer_badge']}</strong>, posted at <strong>{od['police_station']}</strong>, 
+  do hereby most respectfully submit this application for grant of remand / extension of police custody 
+  of the accused in the above-mentioned case.
+</div>
+
+<div class="section-header">I. Case Details</div>
+<div class="info-grid">
+  <div class="info-row"><span class="info-label">FIR Number:</span> <span>{case.fir_number or 'Pending Registration'}</span></div>
+  <div class="info-row"><span class="info-label">Date of FIR:</span> <span>{case.filed_at.strftime('%d/%m/%Y') if case.filed_at else now.strftime('%d/%m/%Y')}</span></div>
+  <div class="info-row"><span class="info-label">Crime Category:</span> <span>{category_display}</span></div>
+  <div class="info-row"><span class="info-label">Police Station:</span> <span>{od['police_station']}</span></div>
+  <div class="info-row"><span class="info-label">Complainant:</span> <span>{complainant_name}</span></div>
+  <div class="info-row"><span class="info-label">Date of Arrest:</span> <span>{od['arrest_date']}</span></div>
+</div>
+
+<div class="section-header">II. Accused Details</div>
+<table>
+  <tr><th>Particulars</th><th>Details</th></tr>
+  <tr><td>Name of Accused</td><td>{od['accused_name']}</td></tr>
+  <tr><td>Age</td><td>{od['accused_age']}</td></tr>
+  <tr><td>Address</td><td>{od['accused_address']}</td></tr>
+  <tr><td>Date of Arrest</td><td>{od['arrest_date']}</td></tr>
+</table>
+
+<div class="section-header">III. Applicable Legal Sections</div>
+<ol class="numbered-list">
+  {legal_sections}
+</ol>
+
+<div class="section-header">IV. Grounds for Remand</div>
+<div class="body-text">
+  The investigation is at a critical stage and police custody of the accused is essential for the following reasons:
+</div>
+<ol class="numbered-list">
+  <li>Recovery of further incriminating evidence and stolen property directly linked to the offence.</li>
+  <li>Identification of other accused persons who are still at large and need to be apprehended.</li>
+  <li>Confrontation of the accused with digital evidence, CCTV footage, and witness statements.</li>
+  <li>Verification of the accused's statements and movements during the commission of the offence.</li>
+  <li>Collection of CDR (Call Detail Records) and forensic analysis of digital devices seized.</li>
+  {'<li>' + od['additional_notes'] + '</li>' if od.get('additional_notes') else ''}
+</ol>
+
+<div class="section-header">V. Case Description</div>
+<div class="highlight-box">
+  <strong>Brief Facts:</strong><br/>
+  {(case.description[:600] + '...') if case.description and len(case.description) > 600 else (case.description or 'As per FIR')}
+</div>
+
+<div class="body-text">
+  In view of the above facts and circumstances, it is most respectfully prayed that this Honourable Court may 
+  be pleased to grant <strong>police custody remand</strong> of the accused for a period of <strong>_____ days</strong> 
+  to facilitate thorough investigation of the case.
+</div>
+
+<div class="body-text">
+  The accused has been duly informed of the charges against them in a language they understand. 
+  All procedures under the BNSS, 2023 have been followed in letter and spirit.
+</div>
+
+<div class="signature-block">
+  <div class="sig-left">
+    <div class="sig-line"></div>
+    <div class="sig-name">{od['officer_name']}</div>
+    <div class="sig-designation">{od['officer_rank']}, Badge #{od['officer_badge']}</div>
+    <div class="sig-designation">{od['police_station']}</div>
+  </div>
+  <div class="sig-right">
+    <div class="seal-area">OFFICIAL<br/>SEAL</div>
+  </div>
+</div>
+
+<div class="body-text" style="margin-top:20px;font-size:11pt;color:#555;">
+  <strong>Enclosures:</strong><br/>
+  1. Copy of FIR (FIR No. {case.fir_number or 'Pending'})<br/>
+  2. Arrest memo<br/>
+  3. Personal search memo<br/>
+  4. Evidence list<br/>
+  5. Relevant investigation documents
+</div>
+"""
+    return _base_html("Remand Request Letter", content)
+
+
+def _generate_seizure_receipt(case, od: dict) -> str:
+    """Seizure Receipt (Panchnama) — Official acknowledgement of items seized."""
+    now = datetime.now()
+    receipt_no = f"SR/{od['police_station'][:3].upper()}/{now.year}/{now.month:02d}{now.day:02d}-001"
+    complainant_name = case.complainant.full_name if case.complainant else "As per FIR"
+
+    items_html = ""
+    if od.get("items_seized") and od["items_seized"] != "As per seizure list":
+        for i, item in enumerate(od["items_seized"].split(","), 1):
+            items_html += f"<tr><td>{i}</td><td>{item.strip()}</td><td>1</td><td>—</td><td>Sealed</td></tr>"
+    else:
+        items_html = """
+        <tr><td>1</td><td>Mobile Phone (make/model as noted)</td><td>1</td><td>—</td><td>Sealed Bag A</td></tr>
+        <tr><td>2</td><td>Documents / Papers (as listed)</td><td>1 bundle</td><td>—</td><td>Sealed Bag B</td></tr>
+        <tr><td>3</td><td>SIM Card(s)</td><td>—</td><td>—</td><td>Sealed Envelope</td></tr>
+        """
+
+    content = f"""
+<div class="letterhead">
+  <div class="emblem">🇮🇳</div>
+  <h1>Government of India</h1>
+  <h2>{od['police_station']}</h2>
+  <div class="subtitle">Seizure Receipt / Panchnama</div>
+</div>
+
+<div class="doc-title">Seizure Receipt (Panchnama)</div>
+<div class="doc-title" style="font-size:12pt;text-decoration:none;">Under Section 105 BNSS (Formerly Section 100 CrPC)</div>
+
+<div class="ref-block">
+  <span><strong>Receipt No.:</strong> {receipt_no}</span>
+  <span><strong>Date:</strong> {now.strftime("%d %B %Y")}</span>
+  <span><strong>Time:</strong> {now.strftime("%I:%M %p")}</span>
+</div>
+
+<div class="section-header">I. Case Reference</div>
+<div class="info-grid">
+  <div class="info-row"><span class="info-label">FIR Number:</span> <span>{case.fir_number or 'Pending'}</span></div>
+  <div class="info-row"><span class="info-label">Crime Category:</span> <span>{case.category.value.replace('_', ' ').title() if case.category else '—'}</span></div>
+  <div class="info-row"><span class="info-label">Police Station:</span> <span>{od['police_station']}</span></div>
+  <div class="info-row"><span class="info-label">Seized by Officer:</span> <span>{od['officer_name']}, {od['officer_rank']}</span></div>
+  <div class="info-row"><span class="info-label">Badge Number:</span> <span>{od['officer_badge']}</span></div>
+  <div class="info-row"><span class="info-label">Date of Seizure:</span> <span>{od['arrest_date']}</span></div>
+</div>
+
+<div class="section-header">II. Person from Whom Seized</div>
+<table>
+  <tr><th>Particulars</th><th>Details</th></tr>
+  <tr><td>Name</td><td>{od['accused_name']}</td></tr>
+  <tr><td>Age</td><td>{od['accused_age']}</td></tr>
+  <tr><td>Address</td><td>{od['accused_address']}</td></tr>
+  <tr><td>Relation to Case</td><td>Accused / Under Investigation</td></tr>
+</table>
+
+<div class="section-header">III. Place of Seizure</div>
+<div class="body-text">
+  The following items were seized from / at: <strong>{case.incident_location or '[Location as per investigation]'}</strong>, 
+  in the presence of independent witnesses (panchas) named below.
+</div>
+
+<div class="section-header">IV. List of Seized Articles</div>
+<table>
+  <tr>
+    <th>Sr.</th>
+    <th>Description of Article</th>
+    <th>Quantity</th>
+    <th>Estimated Value</th>
+    <th>Seal / Marking</th>
+  </tr>
+  {items_html}
+</table>
+
+<div class="section-header">V. Condition of Articles</div>
+<div class="body-text">
+  The above articles were found in the condition as described. Each article has been properly sealed, 
+  marked with unique identifiers, and a proper chain of custody has been maintained as required under 
+  Section 105 BNSS and the Bharatiya Sakshya Adhiniyam (BSA), 2023.
+</div>
+
+<div class="section-header">VI. Witnesses (Panchas)</div>
+<table>
+  <tr><th>Sr.</th><th>Name</th><th>Address</th><th>Signature</th></tr>
+  <tr><td>1</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+  <tr><td>2</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+</table>
+
+<div class="section-header">VII. Acknowledgement by Person from Whom Seized</div>
+<div class="body-text">
+  I, <strong>{od['accused_name']}</strong>, hereby acknowledge that the above-mentioned articles have been 
+  seized from my possession / the premises under my control. A copy of this receipt has been given to me.
+</div>
+
+<div class="info-row" style="margin-top:12px;">
+  <span class="info-label">Signature of Accused:</span>
+  <span style="border-bottom:1px solid #000; min-width:200px;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+</div>
+
+<div class="signature-block">
+  <div class="sig-left">
+    <div class="sig-line"></div>
+    <div class="sig-name">{od['officer_name']}</div>
+    <div class="sig-designation">{od['officer_rank']}, Badge #{od['officer_badge']}</div>
+    <div class="sig-designation">{od['police_station']}</div>
+    <div class="sig-designation">Date: {now.strftime("%d/%m/%Y")}</div>
+  </div>
+  <div class="sig-right">
+    <div class="seal-area">OFFICIAL<br/>SEAL</div>
+  </div>
+</div>
+
+<div class="body-text" style="margin-top:16px;font-size:10pt;color:#444;">
+  <strong>Note:</strong> This Panchnama has been prepared in accordance with Section 105 BNSS (BNSS, 2023). 
+  Original copy to be retained with case file. Duplicate copy to be given to the person from whom seized. 
+  All seized articles to be produced before the Magistrate as and when required.
+</div>
+"""
+    return _base_html("Seizure Receipt (Panchnama)", content)
+
+
+def _generate_medical_letter(case, od: dict) -> str:
+    """Medical Treatment / Examination Letter."""
+    now = datetime.now()
+    ref_no = f"MED/{od['police_station'][:3].upper()}/{now.year}/{now.month:02d}{now.day:02d}"
+    category_display = case.category.value.replace("_", " ").title() if case.category else "Crime"
+
+    content = f"""
+<div class="letterhead">
+  <div class="emblem">🇮🇳</div>
+  <h1>Government of India</h1>
+  <h2>{od['police_station']}</h2>
+  <div class="subtitle">Medical Examination / Treatment Requisition</div>
+</div>
+
+<div class="doc-title">Medical Treatment / Examination Letter</div>
+<div class="doc-title" style="font-size:11pt;text-decoration:none;">Under Section 51/184 BNSS (Formerly Sections 53/54 CrPC)</div>
+
+<div class="ref-block">
+  <span><strong>Ref. No.:</strong> {ref_no}</span>
+  <span><strong>Date:</strong> {now.strftime("%d %B %Y")}</span>
+</div>
+
+<div class="to-block">
+  <div class="label">To,</div>
+  <div>The Medical Officer / Doctor,</div>
+  <div>{od['hospital_name']},</div>
+  <div>[District]</div>
+</div>
+
+<div class="subject-line">
+  <strong>Subject:</strong> Requisition for Medical Examination / Treatment of 
+  {'Accused' if case.status and 'investigation' in str(case.status).lower() else 'Victim/Accused'} 
+  in FIR No. <strong>{case.fir_number or 'Pending'}</strong> under {category_display} case.
+</div>
+
+<div class="salutation">Respected Sir/Madam,</div>
+
+<div class="body-text">
+  I, <strong>{od['officer_name']}</strong>, {od['officer_rank']}, Badge No. <strong>{od['officer_badge']}</strong>, 
+  posted at <strong>{od['police_station']}</strong>, do hereby request your kind cooperation in conducting a 
+  medical examination / providing necessary medical treatment to the person described below, 
+  in connection with the following case:
+</div>
+
+<div class="section-header">I. Case Details</div>
+<div class="info-grid">
+  <div class="info-row"><span class="info-label">FIR Number:</span> <span>{case.fir_number or 'Pending'}</span></div>
+  <div class="info-row"><span class="info-label">Crime Category:</span> <span>{category_display}</span></div>
+  <div class="info-row"><span class="info-label">Police Station:</span> <span>{od['police_station']}</span></div>
+  <div class="info-row"><span class="info-label">Date of FIR:</span> <span>{case.filed_at.strftime('%d/%m/%Y') if case.filed_at else now.strftime('%d/%m/%Y')}</span></div>
+</div>
+
+<div class="section-header">II. Person Details</div>
+<table>
+  <tr><th>Particulars</th><th>Details</th></tr>
+  <tr><td>Full Name</td><td>{od['accused_name']}</td></tr>
+  <tr><td>Age / Sex</td><td>{od['accused_age']} / [M/F/Other]</td></tr>
+  <tr><td>Address</td><td>{od['accused_address']}</td></tr>
+  <tr><td>Status in Case</td><td>Accused / Victim (as applicable)</td></tr>
+  <tr><td>Date Presented</td><td>{now.strftime("%d/%m/%Y")}</td></tr>
+</table>
+
+<div class="section-header">III. Purpose of Examination</div>
+<div class="body-text">
+  The medical examination is requested for the following purpose(s):
+</div>
+<ol class="numbered-list">
+  <li><strong>Physical examination</strong> to assess injuries, if any, sustained during or related to the incident.</li>
+  <li><strong>Collection of biological samples</strong> (blood, DNA, etc.) as may be required for forensic analysis.</li>
+  <li><strong>Assessment of fitness</strong> for police/judicial custody as required under BNSS provisions.</li>
+  <li><strong>Treatment of injuries</strong>, if any, requiring immediate medical attention.</li>
+  <li><strong>Documentation</strong> of medical findings for evidentiary purposes under BSA, 2023.</li>
+  {'<li>' + od['additional_notes'] + '</li>' if od.get('additional_notes') else ''}
+</ol>
+
+<div class="section-header">IV. Legal Reference</div>
+<div class="highlight-box">
+  <ul class="bulleted-list">
+    <li><strong>Section 51 BNSS</strong> — Power to examine accused for evidence</li>
+    <li><strong>Section 184 BNSS</strong> — Examination of person alleged to be lunatic</li>
+    <li><strong>Section 45 BNSS</strong> — Medical examination of rape victim</li>
+    <li><strong>Bharatiya Sakshya Adhiniyam (BSA), 2023</strong> — Admissibility of medical evidence</li>
+  </ul>
+</div>
+
+<div class="body-text">
+  Your cooperation in this matter is earnestly solicited. Kindly prepare a detailed medical report 
+  documenting all findings and hand it over to the escorting officer in a sealed envelope 
+  duly signed and stamped by you.
+</div>
+
+<div class="body-text">
+  The escorting officer <strong>[Officer Name & Badge No.]</strong> will remain present during the examination 
+  and take custody of the person after completion of the medical examination.
+</div>
+
+<div class="signature-block">
+  <div class="sig-left">
+    <div class="sig-line"></div>
+    <div class="sig-name">{od['officer_name']}</div>
+    <div class="sig-designation">{od['officer_rank']}, Badge #{od['officer_badge']}</div>
+    <div class="sig-designation">{od['police_station']}</div>
+    <div class="sig-designation">Date: {now.strftime("%d/%m/%Y")}</div>
+  </div>
+  <div class="sig-right">
+    <div class="seal-area">OFFICIAL<br/>SEAL</div>
+  </div>
+</div>
+
+<hr style="margin:24px 0;border-color:#999;"/>
+<div class="section-header" style="font-size:11pt;">For Medical Officer Use</div>
+<table>
+  <tr><th>Parameter</th><th>Findings</th></tr>
+  <tr><td>General Condition</td><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+  <tr><td>Injuries Observed</td><td>&nbsp;</td></tr>
+  <tr><td>Samples Collected</td><td>&nbsp;</td></tr>
+  <tr><td>Treatment Given</td><td>&nbsp;</td></tr>
+  <tr><td>Fitness for Custody</td><td>☐ Fit &nbsp;&nbsp; ☐ Unfit &nbsp;&nbsp; ☐ Conditionally Fit</td></tr>
+</table>
+
+<div class="signature-block" style="margin-top:20px;">
+  <div class="sig-left">
+    <div class="sig-line"></div>
+    <div class="sig-name">{od.get('doctor_name', 'Medical Officer')}</div>
+    <div class="sig-designation">MBBS / Medical Officer</div>
+    <div class="sig-designation">{od['hospital_name']}</div>
+    <div class="sig-designation">Date &amp; Time: _______________</div>
+  </div>
+  <div class="sig-right">
+    <div class="seal-area">HOSPITAL<br/>SEAL</div>
+  </div>
+</div>
+"""
+    return _base_html("Medical Treatment Letter", content)
+
+
+def _generate_court_custody(case, od: dict) -> str:
+    """Court Custody Letter / Production Warrant."""
+    now = datetime.now()
+    ref_no = f"CC/{od['police_station'][:3].upper()}/{now.year}/{now.month:02d}{now.day:02d}"
+    category_display = case.category.value.replace("_", " ").title() if case.category else "Crime"
+    legal_sections = ""
+    if case.ai_legal_sections:
+        for sec in case.ai_legal_sections[:4]:
+            s = sec.get("section", "") if isinstance(sec, dict) else str(sec)
+            legal_sections += f"<li>{s}</li>"
+    else:
+        legal_sections = "<li>Applicable sections as per FIR</li>"
+
+    content = f"""
+<div class="letterhead">
+  <div class="emblem">🇮🇳</div>
+  <h1>Government of India</h1>
+  <h2>{od['police_station']}</h2>
+  <div class="subtitle">Court Production / Custody Transfer — BNSS, 2023</div>
+</div>
+
+<div class="doc-title">Court Custody Letter / Production Warrant</div>
+<div class="doc-title" style="font-size:11pt;text-decoration:none;">Under Section 187 BNSS (Formerly Section 167 CrPC)</div>
+
+<div class="ref-block">
+  <span><strong>Ref. No.:</strong> {ref_no}</span>
+  <span><strong>Date:</strong> {now.strftime("%d %B %Y")}</span>
+</div>
+
+<div class="to-block">
+  <div class="label">To,</div>
+  <div>{od['magistrate_name']},</div>
+  <div>{od['court_name']}</div>
+</div>
+
+<div class="subject-line">
+  <strong>Subject:</strong> Production of Accused and Prayer for Judicial Custody in FIR No.&nbsp;
+  <strong>{case.fir_number or 'Pending'}</strong> — {category_display} Case
+</div>
+
+<div class="salutation">Honourable Sir/Madam,</div>
+
+<div class="body-text">
+  I, <strong>{od['officer_name']}</strong>, {od['officer_rank']}, Badge No. <strong>{od['officer_badge']}</strong>, 
+  Investigating Officer of the above FIR registered at <strong>{od['police_station']}</strong>, do hereby produce 
+  the accused before this Honourable Court and submit this letter for judicial custody, 
+  as required under Section 187 of the Bharatiya Nagarik Suraksha Sanhita (BNSS), 2023.
+</div>
+
+<div class="section-header">I. Case Details</div>
+<table>
+  <tr><th>Particulars</th><th>Details</th></tr>
+  <tr><td>FIR Number</td><td>{case.fir_number or 'Pending Registration'}</td></tr>
+  <tr><td>Date of FIR</td><td>{case.filed_at.strftime('%d/%m/%Y') if case.filed_at else now.strftime('%d/%m/%Y')}</td></tr>
+  <tr><td>Crime Category</td><td>{category_display}</td></tr>
+  <tr><td>Police Station</td><td>{od['police_station']}</td></tr>
+  <tr><td>Investigating Officer</td><td>{od['officer_name']}, {od['officer_rank']}</td></tr>
+</table>
+
+<div class="section-header">II. Accused Details</div>
+<table>
+  <tr><th>Particulars</th><th>Details</th></tr>
+  <tr><td>Name</td><td>{od['accused_name']}</td></tr>
+  <tr><td>Age</td><td>{od['accused_age']}</td></tr>
+  <tr><td>Address</td><td>{od['accused_address']}</td></tr>
+  <tr><td>Date of Arrest</td><td>{od['arrest_date']}</td></tr>
+  <tr><td>Present Custody</td><td>Police Custody — {od['police_station']}</td></tr>
+</table>
+
+<div class="section-header">III. Applicable Legal Sections</div>
+<ol class="numbered-list">
+  {legal_sections}
+</ol>
+
+<div class="section-header">IV. Grounds for Judicial Custody</div>
+<div class="body-text">
+  The period of police custody as granted by this Honourable Court has elapsed / is expiring. 
+  The investigation is still in progress. The following grounds necessitate judicial custody:
+</div>
+<ol class="numbered-list">
+  <li>The accused has been interrogated and the required confession/statement has been recorded.</li>
+  <li>Forensic samples have been sent to the Forensic Science Laboratory for analysis.</li>
+  <li>Judicial custody is required to prevent tampering with evidence and threatening witnesses.</li>
+  <li>The accused may be required for further investigation and confrontation as investigation progresses.</li>
+  {'<li>' + od['additional_notes'] + '</li>' if od.get('additional_notes') else ''}
+</ol>
+
+<div class="section-header">V. Case Progress</div>
+<div class="highlight-box">
+  <strong>Brief Case Summary:</strong><br/>
+  {(case.description[:500] + '...') if case.description and len(case.description) > 500 else (case.description or 'As per FIR')}
+</div>
+
+<div class="section-header">VI. Prayer</div>
+<div class="body-text">
+  In view of the above, it is most respectfully prayed that this Honourable Court may be pleased to:
+</div>
+<ol class="numbered-list">
+  <li>Take the accused into <strong>judicial custody</strong> for a period of <strong>14 days</strong> as per Section 187 BNSS.</li>
+  <li>Direct that the accused be kept at the <strong>District Jail / Sub-Jail</strong> as per the Court's orders.</li>
+  <li>Grant permission to the Investigating Officer to interrogate the accused in jail as and when required.</li>
+  <li>Issue necessary orders for production of the accused before this Court as required during investigation.</li>
+</ol>
+
+<div class="body-text">
+  The accused has been duly produced before this Honourable Court in a healthy condition. 
+  Medical fitness certificate is enclosed herewith.
+</div>
+
+<div class="signature-block">
+  <div class="sig-left">
+    <div class="sig-line"></div>
+    <div class="sig-name">{od['officer_name']}</div>
+    <div class="sig-designation">{od['officer_rank']}, Badge #{od['officer_badge']}</div>
+    <div class="sig-designation">{od['police_station']}</div>
+    <div class="sig-designation">Date: {now.strftime("%d/%m/%Y")}</div>
+  </div>
+  <div class="sig-right">
+    <div class="seal-area">OFFICIAL<br/>SEAL</div>
+  </div>
+</div>
+
+<div class="body-text" style="margin-top:16px;font-size:10pt;color:#444;">
+  <strong>Enclosures:</strong><br/>
+  1. Copy of FIR &amp; Arrest Memo<br/>
+  2. Medical Fitness Certificate<br/>
+  3. Previous Remand Orders (if any)<br/>
+  4. Panchnama / Seizure List<br/>
+  5. Case Diary extracts
+</div>
+
+<hr style="margin:24px 0;border-color:#999;"/>
+<div style="text-align:center;font-weight:bold;font-size:12pt;">ORDER OF THE COURT</div>
+<div class="body-text" style="margin-top:10px;">
+  Perused the production letter and related documents. Having heard the IO and counsel for the accused:
+</div>
+<div style="height:80px;border-bottom:1px solid #000;margin:10px 0;"></div>
+<div class="signature-block">
+  <div class="sig-left">
+    <div class="sig-line"></div>
+    <div class="sig-name">{od['magistrate_name']}</div>
+    <div class="sig-designation">{od['court_name']}</div>
+    <div class="sig-designation">Date: _______________</div>
+  </div>
+  <div class="sig-right">
+    <div class="seal-area">COURT<br/>SEAL</div>
+  </div>
+</div>
+"""
+    return _base_html("Court Custody Letter", content)
